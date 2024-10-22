@@ -24,7 +24,6 @@ fn create_header(method: &str, params: HashMap<&str, &str>) -> String {
 fn headers_to_hashtable(headers: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let mut new_headers: HashMap<String, String> = HashMap::new();
     for (i, line) in headers.split("\n").enumerate() {
-        // TODO read status message
         // first line
         if i == 0 {
             let mut words = line.split(" ");
@@ -38,8 +37,12 @@ fn headers_to_hashtable(headers: &str) -> Result<HashMap<String, String>, Box<dy
                 None => Err("http status not found"),
             }?
             .trim();
+            let mut status_message = words.collect::<Vec<&str>>().concat();
+            // remove the last char '\r'
+            status_message.remove(&status_message.len() - 1);
             new_headers.insert("status".to_string(), status.to_string());
             new_headers.insert("http-version".to_string(), http_version.to_string());
+            new_headers.insert("status-message".to_string(), status_message);
             continue;
         }
 

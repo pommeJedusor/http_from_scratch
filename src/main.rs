@@ -11,13 +11,13 @@ struct HttpResponse {
 }
 
 fn create_header(method: &str, params: HashMap<&str, &str>) -> String {
-    let mut result = String::from(format!("{method} / HTTP/1.1\n"));
+    let mut result = String::from(format!("{method} / HTTP/1.1\r\n"));
 
     for (key, value) in &params {
-        result.push_str(&format!("{key}: {value}\n"));
+        result.push_str(&format!("{key}: {value}\r\n"));
     }
 
-    result.push_str("\n");
+    result.push_str("\r\n");
     return result;
 }
 

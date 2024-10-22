@@ -21,12 +21,10 @@ fn create_header(method: &str, params: HashMap<&str, &str>) -> String {
     return result;
 }
 
-fn bytes_headers_to_hashtable(
-    headers: &[u8; 8000],
-) -> Result<HashMap<String, String>, Box<dyn Error>> {
+fn headers_to_hashtable(headers: &str) -> Result<HashMap<String, String>, Box<dyn Error>> {
     let mut new_headers: HashMap<String, String> = HashMap::new();
-    let headers = str::from_utf8(headers)?;
     for (i, line) in headers.split("\n").enumerate() {
+        // TODO read status message
         // first line
         if i == 0 {
             let mut words = line.split(" ");
@@ -44,18 +42,11 @@ fn bytes_headers_to_hashtable(
             new_headers.insert("http-version".to_string(), http_version.to_string());
             continue;
         }
-        // end of the headers
-        if line == "\r" {
-            break;
-        }
-        // if line not valid
-        if !line.contains(":") {
-            return Err(format!("error line {i}\nline: {line:?}").into());
-        }
 
-        let index = line
+        let index = line[..line.len() - 1]
             .find(":")
-            .expect("didn't find the ':' char even though we just checked before it was there?");
+            .expect(&format!("error line {i}\nline: {line:?}"));
+
         let parameter = line[0..index].trim().to_lowercase();
         let value = line[index + 1..].trim();
         new_headers.insert(parameter.to_string(), value.to_string());
@@ -69,31 +60,19 @@ fn get(url: &str, params: HashMap<&str, &str>) -> Result<HttpResponse, Box<dyn E
     let header = create_header("GET", params);
     stream.write(header.as_bytes())?;
 
-    // get the header
-    let mut result: [u8; 8000] = [0; 8000];
-    stream.read(&mut result)?;
-    let response_headers = bytes_headers_to_hashtable(&result)?;
-    let expected_length: usize = response_headers
-        .get("content-length")
-        .unwrap_or(&"0".to_string())
-        .parse()?;
-
-    // get the content
-    let mut content = vec![0; expected_length];
-    let length = stream.read(&mut content)?;
-    if length != expected_length {
-        return Err("length of the headers didn't correspond with the received header".into());
-    }
-    let content = str::from_utf8(&content)?;
+    let mut response = String::new();
+    stream.read_to_string(&mut response)?;
 
     stream.shutdown(Shutdown::Both)?;
 
-    let response = HttpResponse {
-        headers: response_headers,
-        content: content.to_string(),
-    };
+    let split_index = response.find("\r\n\r\n").expect("invalid headers");
+    let headers = headers_to_hashtable(&response[0..split_index])?;
+    let content = &response[split_index + 4..];
 
-    Ok(response)
+    Ok(HttpResponse {
+        headers,
+        content: content.to_string(),
+    })
 }
 
 fn main() {

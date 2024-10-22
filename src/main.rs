@@ -46,9 +46,10 @@ fn headers_to_hashtable(headers: &str) -> Result<HashMap<String, String>, Box<dy
             continue;
         }
 
-        let index = line[..line.len() - 1]
-            .find(":")
-            .expect(&format!("error line {i}\nline: {line:?}"));
+        let index = match line[..line.len() - 1].find(":") {
+            None => Err(format!("error line {i}\nline: {line:?}")),
+            Some(x) => Ok(x),
+        }?;
 
         let parameter = line[0..index].trim().to_lowercase();
         let value = line[index + 1..].trim();
@@ -68,7 +69,10 @@ fn get(url: &str, params: HashMap<&str, &str>) -> Result<HttpResponse, Box<dyn E
 
     stream.shutdown(Shutdown::Both)?;
 
-    let split_index = response.find("\r\n\r\n").expect("invalid headers");
+    let split_index = match response.find("\r\n\r\n") {
+        None => Err("invalid headers"),
+        Some(x) => Ok(x),
+    }?;
     let headers = headers_to_hashtable(&response[0..split_index])?;
     let content = &response[split_index + 4..];
 
